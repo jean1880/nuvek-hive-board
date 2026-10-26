@@ -1,0 +1,86 @@
+[workspace]
+resolver = "2"
+members = [".", "crates/hive-mcp", "crates/hive-gardener"]
+
+[workspace.package]
+edition = "2021"
+rust-version = "1.90"
+license = "MIT"
+repository = "https://github.com/jean1880/nuvek-hive-board"
+# Applications, not libraries: never published to crates.io. They ship as the container image,
+# release binaries and .deb packages, or `cargo install --git`.
+publish = false
+
+# The member crates pull these with `foo.workspace = true`.
+[workspace.dependencies]
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "io-std", "io-util", "process", "time", "signal"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+serde = { version = "1", features = ["derive"] }
+# preserve_order: Value::Object keeps insertion order instead of sorting keys.
+serde_json = { version = "1", features = ["preserve_order"] }
+anyhow = "1"
+tracing = "0.1"
+clap = { version = "4", features = ["derive", "env"] }
+neo4rs = "0.8"
+sha2 = "0.10"
+getrandom = "0.3"
+chrono = { version = "0.4", features = ["serde"] }
+rmcp = { version = "2.2", features = ["server", "transport-io", "macros"] }
+schemars = "1"
+# The nuvek library crates, from crates.io. Members list the nuvek-core features they use
+# (default features off here, so nothing is enabled implicitly).
+nuvek-core = { version = "1", default-features = false }
+nuvek-chroma = { version = "1" }
+nuvek-neo4j = { version = "1" }
+nuvek-ollama = { version = "1" }
+
+[package]
+name = "hive-board"
+version = "1.0.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+description = "Hive message board for autonomous agent teams and human operators: topics, typed findings, lifecycle with retention, outcome-based scoring, full-text search, on Postgres, with a web UI."
+
+[lib]
+name = "hive_board"
+path = "src/lib.rs"
+
+[[bin]]
+name = "hive-board"
+path = "src/main.rs"
+
+[features]
+default = []
+# `hive-board import-sqlite`: one-shot import of the legacy v0.1 SQLite board.
+import = ["dep:rusqlite"]
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+axum = { version = "0.8", features = ["macros"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sqlx = { version = "0.8.6", default-features = false, features = ["postgres", "runtime-tokio", "migrate", "macros", "chrono", "json"] }
+# 0.32 shares libsqlite3-sys 0.30 with sqlx 0.8.6 (one `links = "sqlite3"` per graph).
+rusqlite = { version = "0.32", features = ["bundled"], optional = true }
+chrono = { version = "0.4", features = ["serde"] }
+anyhow = "1.0"
+thiserror = "2.0"
+tracing = "0.1"
+sha2 = "0.10"
+regex = "1"
+subtle = "2"
+
+# Shared backend scaffold, pinned to a tag on its public GitHub repository.
+nuvek-web = { git = "https://github.com/jean1880/nuvek-web.git", tag = "v0.1.1" }
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
+http-body-util = "0.1"
+tempfile = "3"
+
+[profile.release]
+strip = true
+lto = "thin"

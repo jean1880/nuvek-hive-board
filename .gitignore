@@ -1,0 +1,14 @@
+/target
+/dist
+/frontend/dist
+/frontend/node_modules
+/.env
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+.DS_Store
+# Local [patch] overrides and other machine-specific Cargo settings.
+/.cargo/config.toml
+# Agent overlays and local settings
+.claude/

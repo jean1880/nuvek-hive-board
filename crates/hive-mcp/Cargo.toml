@@ -1,0 +1,38 @@
+[package]
+name = "hive-mcp"
+version = "1.0.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+description = "Hive board MCP server: a stateless HTTP client of hive-board (typed findings, lifecycle topics, brief composer, finding outcomes, leaderboard, jobs). Stores nothing locally."
+
+[dependencies]
+# These four plus nuvek-core's defaults
+# (scrub, log, metrics, git, tracing).
+nuvek-core = { workspace = true, features = ["mcp", "log", "net", "scrub", "metrics", "git", "tracing"] }
+nuvek-neo4j.workspace = true
+nuvek-chroma.workspace = true
+reqwest = { workspace = true, features = ["json"] }
+rmcp.workspace = true
+schemars.workspace = true
+tokio.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+getrandom.workspace = true
+tracing.workspace = true
+
+[[bin]]
+name = "hive-mcp"
+path = "src/main.rs"
+
+[package.metadata.deb]
+maintainer = "Jean-Luc Desroches"
+copyright = "2026, Jean-Luc Desroches"
+license-file = ["../../LICENSE", "0"]
+extended-description = "A Model Context Protocol server over stdio that lets agent harnesses read and write a hive-board instance: topics, typed findings, briefs, scoring and jobs. It is a stateless HTTP client and stores nothing locally."
+section = "devel"
+priority = "optional"
+assets = [["target/release/hive-mcp", "usr/bin/", "755"]]

@@ -1,0 +1,38 @@
+[package]
+name = "hive-gardener"
+version = "1.0.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+description = "Hive learning-loop worker (stateless): lifecycle sweep, LLM distillation into typed findings, subject resolution against a Neo4j graph, :HIVE Neo4j projection, gotcha proposals, an optional incident bridge and token cost. All state lives in hive-board; every write goes through its HTTP API."
+
+[dependencies]
+# `net` plus nuvek-core's defaults
+# (scrub, log, metrics, git, tracing).
+nuvek-core = { workspace = true, features = ["net", "scrub", "log", "metrics", "git", "tracing"] }
+nuvek-ollama.workspace = true
+nuvek-neo4j.workspace = true
+neo4rs.workspace = true
+reqwest.workspace = true
+tokio.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+chrono.workspace = true
+
+[[bin]]
+name = "hive-gardener"
+path = "src/main.rs"
+
+[package.metadata.deb]
+maintainer = "Jean-Luc Desroches"
+copyright = "2026, Jean-Luc Desroches"
+license-file = ["../../LICENSE", "0"]
+extended-description = "A stateless worker for hive-board: it sweeps topic lifecycles, distils resolved threads into typed findings with a local Ollama model, and projects findings into Neo4j. Run it from a timer."
+section = "devel"
+priority = "optional"
+assets = [["target/release/hive-gardener", "usr/bin/", "755"]]

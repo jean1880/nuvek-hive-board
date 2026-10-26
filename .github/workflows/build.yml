@@ -1,0 +1,76 @@
+name: CI
+
+# Every gate (gates.yml: fmt, clippy and tests for all three crates, MSRV, the SPA, cargo-deny and
+# gitleaks), then the container image.
+#
+# Nothing publishes unless the repository variable PUBLISH is 'true' AND the ref is a v* tag AND
+# every gate passed on this exact commit: only then does the image job log in to GHCR and push.
+# Every other run (pushes, pull requests, manual runs) builds the image and discards it.
+
+on:
+  push:
+    branches: [master]
+    tags: ["v*"]
+  pull_request:
+  schedule:
+    # Advisories change underneath us as RustSec publishes, so the gates also run daily.
+    - cron: "41 5 * * *"
+  workflow_dispatch:
+
+# A newer push to a pull request cancels its older run. Every other run gets a group of its own.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  gates:
+    uses: ./.github/workflows/gates.yml
+
+  image:
+    name: Container image
+    needs: gates
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: write
+    env:
+      PUSH: ${{ vars.PUBLISH == 'true' && startsWith(github.ref, 'refs/tags/v') && needs.gates.outputs.tested_commit == github.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=ref,event=pr
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
+      - name: Log in to GitHub Container Registry
+        if: env.PUSH == 'true'
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Build (and push only for a published v* tag)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          push: ${{ env.PUSH == 'true' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/amd64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

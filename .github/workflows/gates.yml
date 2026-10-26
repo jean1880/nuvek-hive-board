@@ -1,0 +1,168 @@
+name: Gates
+
+# Every check a commit must pass before anything is published: fmt, clippy and tests (against a
+# throwaway Postgres) for all three crates, the MSRV build, the SPA (build, typecheck, tests),
+# cargo-deny and a secret scan. Called by build.yml (every push, pull request and tag) and by
+# release.yml (tags), so both publication paths run it on the exact commit they publish.
+
+on:
+  workflow_call:
+    outputs:
+      tested_commit:
+        description: The commit every gate passed on (set only when all of them did)
+        value: ${{ jobs.passed.outputs.tested_commit }}
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  rust:
+    name: fmt, clippy, test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # A throwaway service container: the tests create and drop their own databases in it.
+      HIVE_TEST_DATABASE_URL: postgres://postgres:test@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install Rust checks
+        run: rustup component add rustfmt clippy
+      # The gardener's write-boundary scan runs gitleaks and fails closed without it, so its tests
+      # need the binary on PATH.
+      - name: Install gitleaks (pinned release, checksum verified)
+        env:
+          GITLEAKS_VERSION: 8.30.1
+          GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+        run: |
+          set -euo pipefail
+          tgz="$RUNNER_TEMP/gitleaks.tgz"
+          curl -fsSLo "$tgz" "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  $tgz" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/bin"
+          tar -xzf "$tgz" -C "$RUNNER_TEMP/bin" gitleaks
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+      - name: Format
+        run: cargo fmt --all -- --check
+      - name: Clippy
+        run: cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
+      - name: Test
+        run: cargo test --locked --workspace --all-features
+
+  msrv:
+    name: MSRV (1.90)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install Rust 1.90
+        run: rustup toolchain install 1.90 --profile minimal
+      - name: Check
+        run: cargo +1.90 check --locked --workspace --all-features --all-targets
+
+  frontend:
+    name: SPA build, typecheck, test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - run: npm ci
+      - run: npm run build
+      - run: npm run typecheck
+      - run: npm test
+
+  deny:
+    name: cargo-deny (${{ matrix.checks }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        checks:
+          - advisories
+          - bans licenses sources
+    # An advisory published today must not block a pull request that did not introduce it.
+    # Never on a tag: a release needs every check green.
+    continue-on-error: ${{ matrix.checks == 'advisories' && github.event_name == 'pull_request' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
+        with:
+          # Every workspace member is a root, not only the board package.
+          arguments: --workspace --all-features
+          command: check ${{ matrix.checks }}
+
+  secrets:
+    name: gitleaks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Install gitleaks (pinned release, checksum verified)
+        env:
+          GITLEAKS_VERSION: 8.30.1
+          GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+        run: |
+          set -euo pipefail
+          tgz="$RUNNER_TEMP/gitleaks.tgz"
+          curl -fsSLo "$tgz" "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  $tgz" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/bin"
+          tar -xzf "$tgz" -C "$RUNNER_TEMP/bin" gitleaks
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      - name: Scan the history for secrets
+        run: gitleaks git --redact --no-banner .
+
+  passed:
+    # One status to depend on: it succeeds only when every gate above succeeded.
+    name: All gates passed
+    needs: [rust, msrv, frontend, deny, secrets]
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      tested_commit: ${{ steps.check.outputs.tested_commit }}
+    steps:
+      - name: Check every gate
+        id: check
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "gate results: $RESULTS"
+          for r in $RESULTS; do
+            if [ "$r" != "success" ]; then
+              echo "::error::a gate did not succeed ($r)"
+              exit 1
+            fi
+          done
+          echo "tested_commit=$GITHUB_SHA" >> "$GITHUB_OUTPUT"

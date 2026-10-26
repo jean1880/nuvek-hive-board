@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- nuvek-hive-board icon. Original artwork for nuvek-hive-board, built on the author's
+       eight-tooth gear mark: the gear in the hive's centre cell, with neighbouring cells
+       holding the posts of three agents. -->
+  <defs>
+    <linearGradient id="hb-rim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#a08cff"/>
+      <stop offset="1" stop-color="#5a44c8"/>
+    </linearGradient>
+    <linearGradient id="hb-screen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2b2442"/>
+      <stop offset="1" stop-color="#181425"/>
+    </linearGradient>
+    <linearGradient id="hb-cell" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e2e2ff"/>
+      <stop offset="1" stop-color="#aeaaf2"/>
+    </linearGradient>
+    <linearGradient id="hb-gear" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#a29ea4"/>
+      <stop offset="1" stop-color="#8a868c"/>
+    </linearGradient>
+    <clipPath id="hb-clip">
+      <rect x="18" y="18" width="92" height="92" rx="13"/>
+    </clipPath>
+  </defs>
+  <!-- depth: the same tile, dropped and darkened (GNOME HIG front-facing depth) -->
+  <rect x="12" y="17" width="104" height="104" rx="18" fill="#0d0a16" opacity="0.55"/>
+  <!-- tile rim -->
+  <rect x="12" y="12" width="104" height="104" rx="18" fill="url(#hb-rim)"/>
+  <!-- screen -->
+  <rect x="18" y="18" width="92" height="92" rx="13" fill="url(#hb-screen)"/>
+  <!-- the honeycomb around the centre cell -->
+  <g clip-path="url(#hb-clip)">
+    <path fill="#e8846b" d="M90.85 -9.50 L114.23 4.00 L114.23 31.00 L90.85 44.50 L67.46 31.00 L67.46 4.00 Z"/>
+    <path fill="#5b9cf6" d="M90.85 83.50 L114.23 97.00 L114.23 124.00 L90.85 137.50 L67.46 124.00 L67.46 97.00 Z"/>
+    <path fill="#4cc38a" d="M10.31 37.00 L33.69 50.50 L33.69 77.50 L10.31 91.00 L-13.08 77.50 L-13.08 50.50 Z"/>
+    <g fill="#c8c8ff" opacity="0.14">
+      <path d="M117.69 37.00 L141.08 50.50 L141.08 77.50 L117.69 91.00 L94.31 77.50 L94.31 50.50 Z"/>
+      <path d="M37.15 83.50 L60.54 97.00 L60.54 124.00 L37.15 137.50 L13.77 124.00 L13.77 97.00 Z"/>
+      <path d="M37.15 -9.50 L60.54 4.00 L60.54 31.00 L37.15 44.50 L13.77 31.00 L13.77 4.00 Z"/>
+    </g>
+  </g>
+  <!-- soft top highlight -->
+  <rect x="26" y="21" width="76" height="2" rx="1" fill="#ffffff" opacity="0.07"/>
+  <!-- the centre cell -->
+  <path fill="url(#hb-cell)" d="M64.00 36.00 L88.25 50.00 L88.25 78.00 L64.00 92.00 L39.75 78.00 L39.75 50.00 Z"/>
+  <!-- the gear: eight trapezoid teeth and a hollow hub, in the mark's grey over its dark outline -->
+  <path transform="translate(64 64) scale(0.52)" fill="#353435" fill-rule="evenodd"
+        stroke="#353435" stroke-width="8" stroke-linejoin="round"
+        d="M-7.00 -29.17 L-5.91 -39.56 L5.91 -39.56 L7.00 -29.17 A30 30 0 0 1 15.67 -25.58 L23.79 -32.15 L32.15 -23.79 L25.58 -15.67 A30 30 0 0 1 29.17 -7.00 L39.56 -5.91 L39.56 5.91 L29.17 7.00 A30 30 0 0 1 25.58 15.67 L32.15 23.79 L23.79 32.15 L15.67 25.58 A30 30 0 0 1 7.00 29.17 L5.91 39.56 L-5.91 39.56 L-7.00 29.17 A30 30 0 0 1 -15.67 25.58 L-23.79 32.15 L-32.15 23.79 L-25.58 15.67 A30 30 0 0 1 -29.17 7.00 L-39.56 5.91 L-39.56 -5.91 L-29.17 -7.00 A30 30 0 0 1 -25.58 -15.67 L-32.15 -23.79 L-23.79 -32.15 L-15.67 -25.58 A30 30 0 0 1 -7.00 -29.17 Z M0 -13 A13 13 0 1 0 0 13 A13 13 0 1 0 0 -13 Z"/>
+  <path transform="translate(64 64) scale(0.52)" fill="url(#hb-gear)" fill-rule="evenodd"
+        d="M-7.00 -29.17 L-5.91 -39.56 L5.91 -39.56 L7.00 -29.17 A30 30 0 0 1 15.67 -25.58 L23.79 -32.15 L32.15 -23.79 L25.58 -15.67 A30 30 0 0 1 29.17 -7.00 L39.56 -5.91 L39.56 5.91 L29.17 7.00 A30 30 0 0 1 25.58 15.67 L32.15 23.79 L23.79 32.15 L15.67 25.58 A30 30 0 0 1 7.00 29.17 L5.91 39.56 L-5.91 39.56 L-7.00 29.17 A30 30 0 0 1 -15.67 25.58 L-23.79 32.15 L-32.15 23.79 L-25.58 15.67 A30 30 0 0 1 -29.17 7.00 L-39.56 5.91 L-39.56 -5.91 L-29.17 -7.00 A30 30 0 0 1 -25.58 -15.67 L-32.15 -23.79 L-23.79 -32.15 L-15.67 -25.58 A30 30 0 0 1 -7.00 -29.17 Z M0 -13 A13 13 0 1 0 0 13 A13 13 0 1 0 0 -13 Z"/>
+</svg>

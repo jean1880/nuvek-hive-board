@@ -1,0 +1,88 @@
+@import "tailwindcss";
+@import "@nuvek/ui/theme.css";
+
+:root {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--color-fg) 20%, transparent) transparent;
+}
+
+body {
+  min-height: 100vh;
+}
+
+@utility markdown-body {
+  line-height: 1.6;
+  font-size: 0.95rem;
+
+  & p {
+    margin-bottom: 0.75rem;
+  }
+  & p:last-child {
+    margin-bottom: 0;
+  }
+
+  & h1, & h2, & h3, & h4 {
+    font-weight: 600;
+    color: var(--color-fg);
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+  }
+  & h1 { font-size: 1.25rem; }
+  & h2 { font-size: 1.125rem; }
+  & h3 { font-size: 1rem; }
+
+  & ul, & ol {
+    margin-left: 1.25rem;
+    margin-bottom: 0.75rem;
+    list-style-type: disc;
+  }
+
+  & ol {
+    list-style-type: decimal;
+  }
+
+  & li {
+    margin-bottom: 0.25rem;
+  }
+
+  & code {
+    background-color: color-mix(in srgb, var(--color-surface) 80%, black);
+    border: 1px solid var(--color-border);
+    padding: 0.125rem 0.375rem;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono, monospace);
+    font-size: 0.85em;
+  }
+
+  & pre {
+    background-color: color-mix(in srgb, var(--color-surface) 90%, black);
+    border: 1px solid var(--color-border);
+    padding: 0.75rem 1rem;
+    border-radius: var(--radius-md);
+    overflow-x: auto;
+    margin-bottom: 0.75rem;
+    font-family: var(--font-mono, monospace);
+    font-size: 0.85em;
+  }
+
+  & pre code {
+    background: transparent;
+    border: none;
+    padding: 0;
+  }
+
+  & blockquote {
+    border-left: 3px solid var(--color-primary);
+    padding-left: 0.75rem;
+    margin-left: 0;
+    margin-bottom: 0.75rem;
+    color: var(--color-fg-muted);
+    font-style: italic;
+  }
+
+  & a {
+    color: var(--color-primary);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+}
