@@ -1,0 +1,15 @@
+target
+frontend/node_modules
+frontend/dist
+.git
+.gitignore
+.cargo
+*.md
+# Secrets and local configuration never enter the build context.
+.env*
+**/.env*
+*.pem
+*.key
+**/*.pem
+**/*.key
+compose.yml

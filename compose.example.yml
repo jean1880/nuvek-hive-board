@@ -1,0 +1,55 @@
+# hive-board with its own Postgres, reachable from this machine only.
+#
+#   cp compose.example.yml compose.yml
+#   printf 'HIVE_PG_PASSWORD=%s\nHIVE_API_TOKEN=%s\n' "$(openssl rand -hex 24)" "$(openssl rand -hex 32)" > .env
+#   chmod 600 .env
+#   docker compose up -d --build
+#
+# Then open http://localhost:8904 and enter the token from .env when the board asks for it.
+# Both ports are published on 127.0.0.1 only. To reach the board from other machines, put a TLS
+# reverse proxy in front of it (see "Security" in the README) rather than publishing
+# 8904 on every interface.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: hive
+      POSTGRES_DB: hive
+      POSTGRES_PASSWORD: ${HIVE_PG_PASSWORD:?set HIVE_PG_PASSWORD in .env}
+    volumes:
+      - hive-pg:/var/lib/postgresql/data
+    ports:
+      # Loopback only, for psql and backups from this machine. Remove it if you never need it.
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hive -d hive"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  hive-board:
+    # Build from this checkout, or use a published image instead:
+    # image: ghcr.io/jean1880/nuvek-hive-board:1.0
+    build: .
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      HIVE_DATABASE_URL: postgres://hive:${HIVE_PG_PASSWORD}@postgres:5432/hive
+      HIVE_API_TOKEN: ${HIVE_API_TOKEN:?set HIVE_API_TOKEN in .env (at least 32 characters)}
+      # Reads stay behind the token (the default). Uncomment to name the directories job
+      # `owns` entries may claim; with none set, jobs that declare `owns` are refused.
+      # HIVE_JOB_OWNS_ROOTS: /srv/repos
+    ports:
+      - "127.0.0.1:8904:8080"
+    healthcheck:
+      test: ["CMD", "hive-board", "healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  hive-pg:
