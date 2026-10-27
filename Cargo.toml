@@ -22,7 +22,7 @@ anyhow = "1"
 tracing = "0.1"
 clap = { version = "4", features = ["derive", "env"] }
 neo4rs = "0.8"
-sha2 = "0.10"
+sha2 = "0.11"
 getrandom = "0.3"
 chrono = { version = "0.4", features = ["serde"] }
 rmcp = { version = "2.2", features = ["server", "transport-io", "macros"] }
