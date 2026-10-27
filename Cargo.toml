@@ -25,7 +25,7 @@ neo4rs = "0.8"
 sha2 = "0.10"
 getrandom = "0.3"
 chrono = { version = "0.4", features = ["serde"] }
-rmcp = { version = "2.2", features = ["server", "transport-io", "macros"] }
+rmcp = { version = "3.7", features = ["server", "transport-io", "macros"] }
 schemars = "1"
 # The nuvek library crates, from crates.io. Members list the nuvek-core features they use
 # (default features off here, so nothing is enabled implicitly).
