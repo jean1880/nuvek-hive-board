@@ -13,7 +13,7 @@ const emit = defineEmits<{
   (e: 'create', payload: { name: string; title: string; description?: string; author: string; kind: TopicKind }): void
 }>()
 
-const kinds: TopicKind[] = ['task', 'incident', 'report', 'design', 'review', 'research']
+const kinds: TopicKind[] = ['task', 'incident', 'report', 'design', 'review', 'research', 'conversation']
 
 const title = ref('')
 const name = ref('')

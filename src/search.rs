@@ -19,6 +19,8 @@ pub struct SearchQuery {
     topic: Option<String>,
     author: Option<String>,
     limit: Option<i64>,
+    /// `conversation` topics are out of default results; naming a topic or this flag brings them in.
+    include_conversations: Option<bool>,
 }
 
 #[derive(Serialize, FromRow)]
@@ -74,6 +76,7 @@ pub async fn search(
              FROM topics t, websearch_to_tsquery('english', $1) tq \
             WHERE t.search @@ tq AND ($2::bigint IS NULL OR t.id = $2) \
               AND ($3::text IS NULL OR t.created_by = $3) \
+              AND ($5 OR $2::bigint IS NOT NULL OR t.kind <> 'conversation') \
            UNION ALL \
            SELECT 'message', t.name, m.id, m.author, \
                   ts_headline('english', m.content, tq, {HEADLINE}), m.created_at, \
@@ -82,6 +85,7 @@ pub async fn search(
                   websearch_to_tsquery('english', $1) tq \
             WHERE m.search @@ tq AND ($2::bigint IS NULL OR m.topic_id = $2) \
               AND ($3::text IS NULL OR m.author = $3) \
+              AND ($5 OR $2::bigint IS NOT NULL OR t.kind <> 'conversation') \
            UNION ALL \
            SELECT 'finding', t.name, f.id, coalesce(i.agent_type, f.provenance), \
                   ts_headline('english', f.claim, tq, {HEADLINE}), f.created_at, \
@@ -90,6 +94,7 @@ pub async fn search(
                   LEFT JOIN identities i ON i.id = f.identity_id, \
                   websearch_to_tsquery('english', $1) tq \
             WHERE f.search @@ tq AND ($2::bigint IS NULL OR f.topic_id = $2) AND $3::text IS NULL \
+              AND ($5 OR $2::bigint IS NOT NULL OR t.kind <> 'conversation') \
            UNION ALL \
            SELECT 'digest', t.name, d.id, d.producer, \
                   ts_headline('english', d.summary, tq, {HEADLINE}), d.created_at, \
@@ -97,6 +102,7 @@ pub async fn search(
              FROM digests d JOIN topics t ON t.id = d.topic_id, \
                   websearch_to_tsquery('english', $1) tq \
             WHERE d.search @@ tq AND ($2::bigint IS NULL OR d.topic_id = $2) AND $3::text IS NULL \
+              AND ($5 OR $2::bigint IS NOT NULL OR t.kind <> 'conversation') \
          ) hits ORDER BY score DESC, created_at DESC LIMIT $4"
     );
     let results = sqlx::query_as::<_, SearchHit>(&sql)
@@ -104,6 +110,7 @@ pub async fn search(
         .bind(tid)
         .bind(&author)
         .bind(limit)
+        .bind(q.include_conversations.unwrap_or(false))
         .fetch_all(&mut *conn)
         .await?;
 
@@ -111,11 +118,14 @@ pub async fn search(
     let suggestions: Vec<String> = sqlx::query_scalar(
         "SELECT cand FROM ( \
            SELECT name AS cand, similarity(name, $1) AS s FROM topics \
+            WHERE $2 OR kind <> 'conversation' \
            UNION ALL SELECT title, similarity(title, $1) FROM topics \
+            WHERE $2 OR kind <> 'conversation' \
            UNION ALL SELECT alias, similarity(alias, $1) FROM aliases) x \
           WHERE s > 0.25 GROUP BY cand ORDER BY max(s) DESC, cand LIMIT 5",
     )
     .bind(&query)
+    .bind(q.include_conversations.unwrap_or(false) || tid.is_some())
     .fetch_all(&mut *conn)
     .await?;
 
@@ -166,8 +176,8 @@ pub async fn brief(
 
     let fsql = format!(
         "SELECT {FINDING_COLS} FROM findings f JOIN topics t ON t.id = f.topic_id \
-         WHERE f.status IN ('open','confirmed','fixed') \
-           AND ( ($1::text[] = '{{}}' AND $2::text IS NULL) \
+         WHERE f.status IN ('open','confirmed','fixed') AND t.kind <> 'conversation' \
+           AND (($1::text[] = '{{}}' AND $2::text IS NULL) \
                  OR f.subjects && $1 \
                  OR ($2::text IS NOT NULL AND f.search @@ websearch_to_tsquery('english', $2)) ) \
          ORDER BY CASE f.severity WHEN 'BLOCKER' THEN 0 WHEN 'SHOULD' THEN 1 ELSE 2 END, \
@@ -183,7 +193,8 @@ pub async fn brief(
     let dsql = "SELECT d.id, d.topic_id, t.name AS topic_name, d.version, d.summary, \
                        d.participants, d.finding_ids, d.through_message_id, d.producer, d.created_at \
                   FROM digests d JOIN topics t ON t.id = d.topic_id \
-                 WHERE $1::text IS NULL OR d.search @@ websearch_to_tsquery('english', $1) \
+                 WHERE t.kind <> 'conversation' \
+                   AND ($1::text IS NULL OR d.search @@ websearch_to_tsquery('english', $1)) \
                  ORDER BY CASE WHEN $1::text IS NULL THEN 0 \
                           ELSE ts_rank_cd(d.search, websearch_to_tsquery('english', $1)) END DESC, \
                           d.created_at DESC LIMIT $2";
@@ -195,7 +206,8 @@ pub async fn brief(
 
     let tsql = format!(
         "SELECT {TOPIC_COLS} FROM topics t \
-         WHERE $1::text IS NULL OR t.search @@ websearch_to_tsquery('english', $1) \
+         WHERE t.kind <> 'conversation' \
+           AND ($1::text IS NULL OR t.search @@ websearch_to_tsquery('english', $1)) \
          ORDER BY CASE WHEN $1::text IS NULL THEN 0 \
                   ELSE ts_rank_cd(t.search, websearch_to_tsquery('english', $1)) END DESC, \
                   t.last_activity_at DESC LIMIT $2"

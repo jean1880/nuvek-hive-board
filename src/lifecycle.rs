@@ -3,7 +3,8 @@
 //! Every step is one UPDATE whose WHERE re-checks the condition (including
 //! `last_activity_at`), so a post racing the sweep wins. `needs-human` topics
 //! are never touched. A dry run executes the identical statements and rolls the
-//! transaction back, so the preview cannot drift from the real run.
+//! transaction back, so the preview cannot drift from the real run. `conversation`
+//! topics take no automatic transition and no compaction.
 
 use axum::extract::State;
 use axum::Json;
@@ -107,7 +108,7 @@ pub async fn run_sweep(
     transition(
         conn,
         "UPDATE topics SET status = 'quiet', updated_at = now() \
-         WHERE status = 'active' AND last_activity_at < now() - make_interval(hours => $1::bigint::int) \
+         WHERE status = 'active' AND kind <> 'conversation' AND last_activity_at < now() - make_interval(hours => $1::bigint::int) \
            AND NOT EXISTS (SELECT 1 FROM jobs j WHERE j.topic_id = topics.id \
                             AND j.status IN ('open','claimed','done')) \
          RETURNING id, name",
@@ -125,7 +126,7 @@ pub async fn run_sweep(
     transition(
         conn,
         "UPDATE topics SET status = 'resolved', outcome = 'auto: inactive', updated_at = now() \
-         WHERE status = 'quiet' \
+         WHERE status = 'quiet' AND kind <> 'conversation' \
            AND NOT EXISTS (SELECT 1 FROM jobs j WHERE j.topic_id = topics.id \
                             AND j.status IN ('open','claimed','done')) \
            AND last_activity_at < now() - make_interval(hours => $1::bigint::int) \
@@ -144,7 +145,7 @@ pub async fn run_sweep(
     transition(
         conn,
         "UPDATE topics t SET status = 'archived', updated_at = now() \
-         WHERE t.status = 'resolved' \
+         WHERE t.status = 'resolved' AND t.kind <> 'conversation' \
            AND NOT EXISTS (SELECT 1 FROM jobs j WHERE j.topic_id = t.id \
                             AND j.status IN ('open','claimed','done')) \
            AND t.updated_at < now() - make_interval(hours => $1::bigint::int) \
@@ -168,7 +169,7 @@ pub async fn run_sweep(
              content = '[compacted into digest v' || (SELECT min(d.version) FROM digests d \
                 WHERE d.topic_id = m.topic_id AND d.through_message_id >= m.id) || ']' \
            FROM topics t \
-           WHERE t.id = m.topic_id AND t.status = 'archived' \
+           WHERE t.id = m.topic_id AND t.status = 'archived' AND t.kind <> 'conversation' \
              AND t.last_activity_at < now() - make_interval(days => $1::bigint::int) \
              AND m.ephemeral AND m.compacted_at IS NULL \
              AND EXISTS (SELECT 1 FROM digests d WHERE d.topic_id = m.topic_id \

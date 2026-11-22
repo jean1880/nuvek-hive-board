@@ -1035,3 +1035,92 @@ async fn gardener_gauges_are_omitted_until_a_run_exists() {
     assert!(!text.contains("hive_last_gardener_run_ok"));
     t.cleanup().await;
 }
+
+#[tokio::test]
+async fn conversation_topics_are_never_swept_and_stay_out_of_work_context() {
+    let t = TestApp::new().await;
+    let (s, v) = t
+        .write(
+            "POST",
+            "/api/topics",
+            json!({"name": "letters", "title": "Letters", "author": "tester", "kind": "conversation"}),
+        )
+        .await;
+    assert_eq!(s, StatusCode::CREATED, "{v}");
+    assert_eq!(v["kind"], "conversation");
+    t.post(
+        "letters",
+        json!({"author": "a", "content": "the aardvark ledger, see example.test"}),
+    )
+    .await;
+    let agent = json!({"agent_type": "writer", "model": "m", "harness": "h"});
+    t.post(
+        "letters",
+        json!({"author": "a", "kind": "finding", "severity": "SHOULD",
+               "content": "aardvark claim in a letter", "agent": agent}),
+    )
+    .await;
+    t.write("POST", "/api/topics/letters/digest", json!({}))
+        .await;
+
+    // Never swept, however idle; a resolved one is never archived or compacted either.
+    age_topic(&t, "letters", 24 * 400).await;
+    let (_, r) = t
+        .write(
+            "POST",
+            "/api/maintenance/sweep",
+            json!({"dry_run": false, "actor": "gardener"}),
+        )
+        .await;
+    assert!(r["changes"].as_array().expect("c").is_empty(), "{r}");
+    let (_, v) = t.get("/api/topics/letters").await;
+    assert_eq!(v["status"], "active");
+    let (s, _) = t
+        .write(
+            "PATCH",
+            "/api/topics/letters",
+            json!({"status": "resolved", "outcome": "done", "actor": "a"}),
+        )
+        .await;
+    assert_eq!(s, StatusCode::OK);
+    age_topic(&t, "letters", 24 * 400).await;
+    let (_, r) = t
+        .write(
+            "POST",
+            "/api/maintenance/sweep",
+            json!({"dry_run": false, "actor": "gardener"}),
+        )
+        .await;
+    assert!(r["changes"].as_array().expect("c").is_empty(), "{r}");
+    let (_, v) = t.get("/api/topics/letters").await;
+    assert_eq!(v["status"], "resolved");
+    // A post still reopens it.
+    t.post(
+        "letters",
+        json!({"author": "a", "content": "another letter"}),
+    )
+    .await;
+    let (_, v) = t.get("/api/topics/letters").await;
+    assert_eq!(v["status"], "active");
+
+    // Default search and briefs skip it; opting in or naming the topic shows it.
+    let (_, v) = t.get("/api/search?q=aardvark").await;
+    assert!(v["results"].as_array().expect("r").is_empty(), "{v}");
+    let (_, v) = t
+        .get("/api/search?q=aardvark&include_conversations=true")
+        .await;
+    assert!(!v["results"].as_array().expect("r").is_empty(), "{v}");
+    let (_, v) = t.get("/api/search?q=aardvark&topic=letters").await;
+    assert!(!v["results"].as_array().expect("r").is_empty(), "{v}");
+    let (_, v) = t.get("/api/brief?q=aardvark").await;
+    assert!(v["findings"].as_array().expect("f").is_empty());
+    assert!(v["digests"].as_array().expect("d").is_empty());
+    assert!(v["related_topics"].as_array().expect("t").is_empty());
+
+    // Scoring ignores it.
+    let (_, lb) = t.get("/api/leaderboard").await;
+    assert!(lb.as_array().expect("lb").is_empty(), "{lb}");
+    let (_, st) = t.get("/api/stats").await;
+    assert_eq!(st["open_findings"], 0, "{st}");
+    t.cleanup().await;
+}

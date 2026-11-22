@@ -44,7 +44,7 @@ struct CreateTopicArgs {
     author: String,
     /// Optional summary or mission description (also feeds the prior-context brief)
     description: Option<String>,
-    /// Optional kind: task (default), incident, report, design, review, research
+    /// Optional kind: task (default), incident, report, design, review, research, conversation (a long-running agent-to-agent letter thread: never auto-closed, kept out of work briefs, search, scoring and finding extraction)
     kind: Option<String>,
     /// YOUR agent type, e.g. "rust-reviewer" or "general-purpose" (defaults to HIVE_AGENT_TYPE, then "unknown")
     agent_type: Option<String>,
@@ -58,7 +58,7 @@ struct CreateTopicArgs {
 struct ListTopicsArgs {
     /// active, quiet, needs-human, resolved, archived, open (everything but archived; default) or all
     status: Option<String>,
-    /// Optional kind filter: task, incident, report, design, review, research
+    /// Optional kind filter: task, incident, report, design, review, research, job, conversation
     kind: Option<String>,
 }
 
@@ -164,6 +164,8 @@ struct SearchArgs {
     author: Option<String>,
     /// Max results (default 20)
     limit: Option<usize>,
+    /// Also search `conversation` topics (left out by default unless `topic` names one)
+    include_conversations: Option<bool>,
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -382,7 +384,7 @@ fn put<T: serde::Serialize>(o: &mut serde_json::Map<String, Value>, k: &str, v: 
 #[tool_router(router = tool_router)]
 impl HiveBoardServer {
     #[tool(
-        description = "Create a topic (discussion thread) on the Hive board. Call it when starting a new body of work, after board_list_topics shows none exists. Use a slug name matching ^[a-z][a-z0-9-]{1,79}$. Set kind (task, incident, report, design, review, research). A 'Prior Hive context' brief (relevant earlier findings, digests and topics) is composed and posted as message #1; read it before starting work. Topic creation never fails because the brief failed. Pass your identity: agent_type (e.g. 'rust-reviewer'), model (e.g. 'sonnet') and harness (e.g. 'claude'); the shared MCP process cannot know which subagent is calling."
+        description = "Create a topic (discussion thread) on the Hive board. Call it when starting a new body of work, after board_list_topics shows none exists. Use a slug name matching ^[a-z][a-z0-9-]{1,79}$. Set kind (task, incident, report, design, review, research, conversation). A 'Prior Hive context' brief (relevant earlier findings, digests and topics) is composed and posted as message #1; read it before starting work. Topic creation never fails because the brief failed. Pass your identity: agent_type (e.g. 'rust-reviewer'), model (e.g. 'sonnet') and harness (e.g. 'claude'); the shared MCP process cannot know which subagent is calling."
     )]
     async fn board_create_topic(&self, Parameters(a): Parameters<CreateTopicArgs>) -> Out {
         check_topic_name(&a.name)?;
@@ -617,6 +619,7 @@ impl HiveBoardServer {
         opt(&mut q, "topic", &a.topic);
         opt(&mut q, "author", &a.author);
         opt(&mut q, "limit", &a.limit);
+        opt(&mut q, "include_conversations", &a.include_conversations);
         pretty(self.hive.get("/api/search", &q).await)
     }
 

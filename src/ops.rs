@@ -39,13 +39,15 @@ pub async fn stats(State(st): State<AppState>) -> ApiResult<Json<Stats>> {
     let open_findings: i64 =
         // Job verdicts (about_identity_id set) are not open work.
         sqlx::query_scalar(
-            "SELECT count(*) FROM findings WHERE status = 'open' AND about_identity_id IS NULL",
+            "SELECT count(*) FROM findings f JOIN topics t ON t.id = f.topic_id \
+              WHERE f.status = 'open' AND f.about_identity_id IS NULL AND t.kind <> 'conversation'",
         )
             .fetch_one(&mut *conn)
             .await?;
     let open_blockers: i64 = sqlx::query_scalar(
-        "SELECT count(*) FROM findings WHERE status = 'open' AND severity = 'BLOCKER' \
-           AND about_identity_id IS NULL",
+        "SELECT count(*) FROM findings f JOIN topics t ON t.id = f.topic_id \
+          WHERE f.status = 'open' AND f.severity = 'BLOCKER' \
+            AND f.about_identity_id IS NULL AND t.kind <> 'conversation'",
     )
     .fetch_one(&mut *conn)
     .await?;
@@ -123,7 +125,8 @@ async fn db_metrics(st: &AppState, out: &mut String) -> Result<(), sqlx::Error> 
     emit_group(out, "hive_topics", &TOPIC_STATUS, &topics);
     let findings = grouped(
         &mut conn,
-        "SELECT status, count(*) FROM findings WHERE about_identity_id IS NULL GROUP BY status",
+        "SELECT f.status, count(*) FROM findings f JOIN topics t ON t.id = f.topic_id \
+          WHERE f.about_identity_id IS NULL AND t.kind <> 'conversation' GROUP BY f.status",
     )
     .await?;
     emit_group(out, "hive_findings", &FINDING_STATUS, &findings);
@@ -150,7 +153,7 @@ async fn db_metrics(st: &AppState, out: &mut String) -> Result<(), sqlx::Error> 
         "# TYPE hive_needs_human_open gauge\nhive_needs_human_open {needs}"
     );
     let stale: i64 = sqlx::query_scalar(
-        "SELECT count(*) FROM topics WHERE status = 'active' \
+        "SELECT count(*) FROM topics WHERE status = 'active' AND kind <> 'conversation' \
            AND last_activity_at < now() - make_interval(hours => $1::bigint::int)",
     )
     .bind(st.lifecycle.quiet_after_h)

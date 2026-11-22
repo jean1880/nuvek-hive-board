@@ -5,6 +5,14 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeSet, HashMap, HashSet};
 
+/// Long-running letter threads: never mined for findings or projected, only narrated.
+pub const CONVERSATION_KIND: &str = "conversation";
+
+/// True when the topic JSON carries `kind == "conversation"`.
+pub fn is_conversation_topic(topic: &Value) -> bool {
+    topic.get("kind").and_then(Value::as_str) == Some(CONVERSATION_KIND)
+}
+
 /// Char-safe truncation (never byte-indexes).
 pub fn truncate_chars(s: &str, n: usize) -> String {
     s.chars().take(n).collect()
@@ -517,6 +525,13 @@ mod tests {
             label: label.into(),
             name: name.into(),
         }
+    }
+
+    #[test]
+    fn conversation_topics_are_recognised_by_kind() {
+        assert!(is_conversation_topic(&json!({"kind": "conversation"})));
+        assert!(!is_conversation_topic(&json!({"kind": "task"})));
+        assert!(!is_conversation_topic(&json!({"name": "x"})));
     }
 
     #[test]

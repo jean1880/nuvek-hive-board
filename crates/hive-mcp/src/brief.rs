@@ -87,7 +87,8 @@ fn api_lines(api: &Value, exclude: Option<&str>) -> Vec<String> {
     if let Some(ts) = api["related_topics"].as_array() {
         for t in ts {
             let name = s(t, &["name"]);
-            if Some(name) == exclude {
+            // Conversation topics never feed a brief, whatever the server returns.
+            if Some(name) == exclude || t["kind"].as_str() == Some("conversation") {
                 continue;
             }
             lines.push(clip(
@@ -417,6 +418,19 @@ mod tests {
         assert!(!out.contains("topic me"));
         assert!(out.contains("topic other (resolved)"));
         assert!(out.contains("semantic [t] hit"));
+    }
+
+    #[test]
+    fn conversation_topics_stay_out_of_the_brief() {
+        let inp = Inputs {
+            api: Some(json!({"related_topics": [
+                {"name": "letters", "kind": "conversation", "status": "active", "title": "l"},
+                {"name": "other", "kind": "task", "status": "resolved", "title": "prior"}]})),
+            ..Default::default()
+        };
+        let out = compose(&inp, BUDGET);
+        assert!(!out.contains("topic letters"));
+        assert!(out.contains("topic other (resolved)"));
     }
 
     #[test]

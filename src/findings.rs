@@ -68,6 +68,7 @@ pub async fn list(
            AND ($3::text IS NULL OR f.kind = $3) AND ($4::text IS NULL OR $4 = ANY(f.subjects)) \
            AND ($5::bigint IS NULL OR f.topic_id = $5) AND f.id > $6 \
            AND ($7::timestamptz IS NULL OR f.updated_at >= $7) \
+           AND ($5::bigint IS NOT NULL OR t.kind <> 'conversation') \
          ORDER BY f.id ASC LIMIT $8"
     );
     let rows = sqlx::query_as::<_, Finding>(&sql)

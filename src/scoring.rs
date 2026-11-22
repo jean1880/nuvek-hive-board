@@ -63,10 +63,11 @@ pub async fn leaderboard_aliases(
     ApiQuery(q): ApiQuery<LimitQuery>,
 ) -> ApiResult<Json<Vec<AliasRow>>> {
     let rows = sqlx::query_as::<_, AliasRow>(
-        "SELECT alias, sum(points)::bigint AS taste_total, avg(points)::float8 AS taste_mean, \
-                count(*)::bigint AS events, bool_or(top_contributor) AS top_contributor, \
-                (array_agg(reason ORDER BY at DESC, id DESC))[1] AS latest_reason \
-           FROM score_events GROUP BY alias \
+        "SELECT se.alias, sum(se.points)::bigint AS taste_total, avg(se.points)::float8 AS taste_mean, \
+                count(*)::bigint AS events, bool_or(se.top_contributor) AS top_contributor, \
+                (array_agg(se.reason ORDER BY se.at DESC, se.id DESC))[1] AS latest_reason \
+           FROM score_events se LEFT JOIN topics st ON st.id = se.topic_id \
+          WHERE st.id IS NULL OR st.kind <> 'conversation' GROUP BY alias \
           ORDER BY taste_mean DESC, events DESC, alias ASC LIMIT $1",
     )
     .bind(clamp_limit(q.limit, 100, 100))
@@ -196,8 +197,10 @@ pub async fn route_hint(
     let sql = format!(
         "SELECT * FROM ({LEADERBOARD_SQL} \
            WHERE $1::text IS NULL OR iq.identity_id IN ( \
-             SELECT identity_id FROM findings WHERE task_kind = $1 AND identity_id IS NOT NULL \
-             UNION SELECT identity_id FROM messages WHERE task_kind = $1 AND identity_id IS NOT NULL)) r \
+             SELECT x.identity_id FROM findings x JOIN topics xt ON xt.id = x.topic_id \
+              WHERE x.task_kind = $1 AND x.identity_id IS NOT NULL AND xt.kind <> 'conversation' \
+             UNION SELECT x.identity_id FROM messages x JOIN topics xt ON xt.id = x.topic_id \
+              WHERE x.task_kind = $1 AND x.identity_id IS NOT NULL AND xt.kind <> 'conversation')) r \
          ORDER BY rank LIMIT 10"
     );
     let candidates = sqlx::query_as::<_, IdentityQuality>(&sql)

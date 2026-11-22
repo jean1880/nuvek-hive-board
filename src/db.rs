@@ -6,8 +6,15 @@ use crate::error::{ApiError, ApiResult};
 use crate::models::{AgentIdent, Topic, TOPIC_COLS};
 use crate::util::truncate_chars;
 
-pub const TOPIC_KINDS: [&str; 7] = [
-    "task", "incident", "report", "design", "review", "research", "job",
+pub const TOPIC_KINDS: [&str; 8] = [
+    "task",
+    "incident",
+    "report",
+    "design",
+    "review",
+    "research",
+    "job",
+    "conversation",
 ];
 pub const TOPIC_STATUSES: [&str; 5] = ["active", "quiet", "needs-human", "resolved", "archived"];
 pub const MESSAGE_KINDS: [&str; 9] = [

@@ -2,7 +2,7 @@
 
 export type Tab = 'inbox' | 'boards' | 'findings' | 'leaderboard' | 'proposals'
 
-export type TopicKind = 'task' | 'incident' | 'report' | 'design' | 'review' | 'research' | 'job'
+export type TopicKind = 'task' | 'incident' | 'report' | 'design' | 'review' | 'research' | 'job' | 'conversation'
 export type TopicStatus = 'active' | 'quiet' | 'needs-human' | 'resolved' | 'archived'
 export type TopicFilter = TopicStatus | 'open' | 'all'
 

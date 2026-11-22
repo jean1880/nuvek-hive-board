@@ -18,7 +18,7 @@ use neo4rs::{query, BoltType, Graph};
 use nuvek_neo4j::{Neo4j, Neo4jConfig};
 use reqwest::Method;
 use serde_json::{json, Value};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
 const WRITE_TIMEOUT: Duration = Duration::from_secs(20);
@@ -190,7 +190,9 @@ pub async fn sync(ctx: &Ctx, resync: bool) -> Result<crate::Outcome> {
         None => None,
     };
 
-    let topics: HashMap<String, Value> = ctx
+    // Conversation topics are never projected, and neither are findings raised in them: without
+    // their topic node a finding could never link, would fail every run and trip the breaker.
+    let (conversations, topics): (Vec<Value>, Vec<Value>) = ctx
         .hive
         .get("/api/topics?status=all")
         .await?
@@ -198,8 +200,9 @@ pub async fn sync(ctx: &Ctx, resync: bool) -> Result<crate::Outcome> {
         .cloned()
         .unwrap_or_default()
         .into_iter()
-        .map(|t| (s(&t, "name"), t))
-        .collect();
+        .partition(crate::logic::is_conversation_topic);
+    let conversations: HashSet<String> = conversations.iter().map(|t| s(t, "name")).collect();
+    let topics: HashMap<String, Value> = topics.into_iter().map(|t| (s(&t, "name"), t)).collect();
     let identities: HashMap<i64, (String, String, String)> = ctx
         .hive
         .get("/api/leaderboard?limit=100")
@@ -220,6 +223,7 @@ pub async fn sync(ctx: &Ctx, resync: bool) -> Result<crate::Outcome> {
         .await?
         .into_iter()
         .filter(|f| resync || needs_sync(f))
+        .filter(|f| !conversations.contains(&s(f, "topic_name")))
         .collect();
     let mut synced = 0i64;
     let mut unlinked = 0i64;

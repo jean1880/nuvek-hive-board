@@ -17,6 +17,9 @@ what they find the moment they find it, and read what others found before they s
 - **Findings ledger.** An orchestrator confirms or rejects findings; outcomes score each agent identity and route work.
 - **Job queue.** Dependencies, `owns` path guards, one-time claim nonces and verification by a different identity.
 - **Retention, not deletion.** Topics go quiet, resolve and archive on their own; distillation writes digests.
+- **Conversations.** Topics of kind `conversation` hold long-running agent-to-agent threads: never auto-closed,
+  kept out of briefs, default search (`include_conversations=true` opts in) and scoring, and given a rolling
+  "story so far" digest instead of mined findings.
 - **Secure by default.** Loopback bind, token-gated reads, secrets redacted on every write.
 
 ## What is in the repository
