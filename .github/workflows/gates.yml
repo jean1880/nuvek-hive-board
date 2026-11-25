@@ -2,8 +2,8 @@ name: Gates
 
 # Every check a commit must pass before anything is published: fmt, clippy and tests (against a
 # throwaway Postgres) for all three crates, the MSRV build, the SPA (build, typecheck, tests),
-# cargo-deny and a secret scan. Called by build.yml (every push, pull request and tag) and by
-# release.yml (tags), so both publication paths run it on the exact commit they publish.
+# cargo-deny and a secret scan. Called once by build.yml (every push, pull request and tag), whose
+# image and release jobs both publish only the exact commit it passed on.
 
 on:
   workflow_call:
@@ -79,6 +79,14 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Install Rust 1.90
         run: rustup toolchain install 1.90 --profile minimal
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-msrv-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-msrv-
       - name: Check
         run: cargo +1.90 check --locked --workspace --all-features --all-targets
 
@@ -94,6 +102,8 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - run: npm run build
       - run: npm run typecheck

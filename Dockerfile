@@ -15,10 +15,26 @@ ARG VITE_BASE_PATH
 RUN npm run build
 
 # --- 2. Build the Rust backend (pulls its git dependencies from their public tags) ---
-FROM rust:1-slim-trixie AS backend
+# cargo-chef splits the build: dependencies compile in their own layer, keyed on the recipe
+# (manifests + Cargo.lock), so a source-only change reuses that layer from the build cache.
+FROM rust:1-slim-trixie AS chef
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates build-essential \
   && rm -rf /var/lib/apt/lists/*
+RUN cargo install cargo-chef --locked --version 0.1.78
+
+FROM chef AS planner
+COPY Cargo.toml Cargo.lock ./
+COPY src/ ./src/
+COPY crates/hive-mcp/Cargo.toml ./crates/hive-mcp/Cargo.toml
+COPY crates/hive-mcp/src/ ./crates/hive-mcp/src/
+COPY crates/hive-gardener/Cargo.toml ./crates/hive-gardener/Cargo.toml
+COPY crates/hive-gardener/src/ ./crates/hive-gardener/src/
+RUN cargo chef prepare --recipe-path recipe.json
+
+FROM chef AS backend
+COPY --from=planner /app/recipe.json recipe.json
+RUN cargo chef cook --release --locked -p hive-board --features import --recipe-path recipe.json
 # The whole workspace: Cargo resolves every member, even when building one package.
 COPY Cargo.toml Cargo.lock ./
 COPY src/ ./src/
